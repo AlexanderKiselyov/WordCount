@@ -1,23 +1,23 @@
-import org.apache.spark.streaming.{LocalStreamingContext, Seconds, StreamingContext}
+import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.{SparkConf, SparkFunSuite}
-import org.scalatest.GivenWhenThen
 import org.scalatest.concurrent.Eventually
-import org.scalatest.matchers.should.Matchers
 
 import java.io.{File, PrintWriter}
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration.DurationInt
 
-class MyTestClass extends SparkFunSuite with LocalStreamingContext with GivenWhenThen with Matchers with Eventually {
+class MyTestClass extends SparkFunSuite with Eventually {
   val conf: SparkConf = new SparkConf().setMaster("local[2]").setAppName("TechnoPolis")
   val streamingContext = new StreamingContext(conf, Seconds(1))
+  val expected: Set[(String, Int)] = Set(("kkk", 1), ("jjjj", 1), ("yyy", 2), ("ghi", 2), ("def", 2), ("abc", 5))
 
-  override protected def beforeAll(): Unit = {
-    super.beforeAll()
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
     doThreadPreAudit()
   }
 
-  override protected def afterAll(): Unit = {
-    super.afterAll()
+  override protected def afterEach(): Unit = {
+    super.afterEach()
     doThreadPostAudit()
     if (streamingContext != null) {
       streamingContext.stop(true)
@@ -37,11 +37,10 @@ class MyTestClass extends SparkFunSuite with LocalStreamingContext with GivenWhe
 
     writeTextInFile()
 
-    Thread.sleep(3000)
-
-    val expected = Set(("kkk", 1), ("jjjj", 1), ("yyy", 2), ("ghi", 2), ("def", 2), ("abc", 5))
-    assertResult(expected.size)(result.length)
-    assertResult(expected)(result.toSet)
+    eventually(timeout(2000.milliseconds), interval(100.milliseconds)) {
+      assertResult(expected.size)(result.length)
+      assertResult(expected)(result.toSet)
+    }
   }
 
   def writeTextInFile(): Unit = {
